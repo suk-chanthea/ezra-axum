@@ -113,7 +113,7 @@ impl DonationUseCase {
             && donation.user.is_some()
         {
             let u = donation.user.as_ref().unwrap();
-            (u.fullname.clone(), u.email.clone(), String::new())
+            (u.name.clone(), u.email.clone(), String::new())
         } else {
             (donation.company_name.clone(), donation.company_email.clone(), donation.company_phone.clone())
         };

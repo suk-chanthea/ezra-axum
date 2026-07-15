@@ -44,11 +44,11 @@ pub async fn google_login(
     if claims.email.is_empty() {
         return Err(AppError::BadRequest("invalid token: missing email".to_string()));
     }
-    let fullname = if claims.name.is_empty() { claims.email.clone() } else { claims.name.clone() };
+    let name = if claims.name.is_empty() { claims.email.clone() } else { claims.name.clone() };
 
     let resp = state
         .auth
-        .google_login(&claims.sub, &claims.email, &fullname, &claims.picture)
+        .google_login(&claims.sub, &claims.email, &name, &claims.picture)
         .await?;
     Ok(Json(resp))
 }

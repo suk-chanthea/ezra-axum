@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id             BIGSERIAL PRIMARY KEY,
     username       VARCHAR(100) NOT NULL,
-    fullname       VARCHAR(100) NOT NULL,
+    name           VARCHAR(100) NOT NULL,
     profile        VARCHAR(255) NOT NULL DEFAULT '',
     email          VARCHAR(100) NOT NULL UNIQUE,
     email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS churches (
     id               BIGSERIAL PRIMARY KEY,
-    fullname         VARCHAR(255) NOT NULL UNIQUE,
+    name             VARCHAR(255) NOT NULL,
     address          TEXT         NOT NULL DEFAULT '',
     phone            VARCHAR(50)  NOT NULL DEFAULT '',
     email            VARCHAR(255) NOT NULL DEFAULT '',

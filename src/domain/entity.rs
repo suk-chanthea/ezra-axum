@@ -71,7 +71,7 @@ pub mod chat_role {
 pub struct User {
     pub id: i64,
     pub username: String,
-    pub fullname: String,
+    pub name: String,
     pub profile: String,
     pub email: String,
     pub email_verified: bool,
@@ -92,11 +92,11 @@ pub struct User {
 
 impl User {
     /// Creates a new user entity for local registration.
-    pub fn new_local(username: String, fullname: String, email: String, password: String) -> Self {
+    pub fn new_local(username: String, name: String, email: String, password: String) -> Self {
         let now = Utc::now();
         User {
             username,
-            fullname,
+            name,
             email,
             email_verified: false,
             password,
@@ -110,11 +110,11 @@ impl User {
     }
 
     /// Creates a new user entity for OAuth providers.
-    pub fn new_oauth(email: String, fullname: String, provider: String, provider_id: String) -> Self {
+    pub fn new_oauth(email: String, name: String, provider: String, provider_id: String) -> Self {
         let now = Utc::now();
         User {
             username: email.clone(),
-            fullname,
+            name,
             email,
             email_verified: true,
             password: String::new(),
@@ -394,7 +394,7 @@ impl ChatMessage {
 #[derive(Debug, Clone, Default)]
 pub struct Church {
     pub id: i64,
-    pub fullname: String,
+    pub name: String,
     pub address: String,
     pub phone: String,
     pub email: String,

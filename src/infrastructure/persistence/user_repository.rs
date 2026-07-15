@@ -25,7 +25,7 @@ impl UserRepository for PgUserRepository {
         let rec: (i64, DateTime<Utc>, DateTime<Utc>) = sqlx::query_as(
             r#"
             INSERT INTO users
-                (username, fullname, profile, email, email_verified, phone, password, role,
+                (username, name, profile, email, email_verified, phone, password, role,
                  token, provider, provider_id, birthday, church_id, church_status, band_id, bio,
                  created_at, updated_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, NOW(), NOW())
@@ -33,7 +33,7 @@ impl UserRepository for PgUserRepository {
             "#,
         )
         .bind(&user.username)
-        .bind(&user.fullname)
+        .bind(&user.name)
         .bind(&user.profile)
         .bind(&user.email)
         .bind(user.email_verified)
@@ -100,7 +100,7 @@ impl UserRepository for PgUserRepository {
         sqlx::query(
             r#"
             UPDATE users SET
-                username = $1, fullname = $2, profile = $3, email = $4, email_verified = $5,
+                username = $1, name = $2, profile = $3, email = $4, email_verified = $5,
                 phone = $6, password = $7, role = $8, token = $9, provider = $10,
                 provider_id = $11, birthday = $12, church_id = $13, church_status = $14,
                 band_id = $15, bio = $16, updated_at = NOW()
@@ -108,7 +108,7 @@ impl UserRepository for PgUserRepository {
             "#,
         )
         .bind(&user.username)
-        .bind(&user.fullname)
+        .bind(&user.name)
         .bind(&user.profile)
         .bind(&user.email)
         .bind(user.email_verified)

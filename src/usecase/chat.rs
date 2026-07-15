@@ -496,7 +496,7 @@ impl ChatUseCase {
         let sender_name = message
             .sender
             .as_ref()
-            .map(|u| u.fullname.clone())
+            .map(|u| u.name.clone())
             .filter(|n| !n.is_empty())
             .unwrap_or_else(|| "Someone".to_string());
 

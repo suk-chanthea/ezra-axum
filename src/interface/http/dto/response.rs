@@ -162,7 +162,7 @@ impl EventResponse {
 pub struct UserResponse {
     pub id: i64,
     pub username: String,
-    pub fullname: String,
+    pub name: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub profile: String,
     pub email: String,
@@ -191,7 +191,7 @@ impl UserResponse {
         UserResponse {
             id: u.id,
             username: u.username.clone(),
-            fullname: u.fullname.clone(),
+            name: u.name.clone(),
             profile: u.profile.clone(),
             email: u.email.clone(),
             email_verified: u.email_verified,
@@ -552,7 +552,7 @@ impl SupporterResponse {
 #[derive(Debug, Serialize)]
 pub struct ChurchResponse {
     pub id: i64,
-    pub fullname: String,
+    pub name: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub address: String,
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -587,7 +587,7 @@ impl ChurchResponse {
     pub fn from_entity(c: &Church) -> Self {
         ChurchResponse {
             id: c.id,
-            fullname: c.fullname.clone(),
+            name: c.name.clone(),
             address: c.address.clone(),
             phone: c.phone.clone(),
             email: c.email.clone(),

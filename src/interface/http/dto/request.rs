@@ -9,10 +9,8 @@ fn default_zero() -> i64 {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct RegisterRequest {
-    #[validate(length(min = 3, max = 100))]
-    pub username: String,
     #[validate(length(min = 1, max = 100))]
-    pub fullname: String,
+    pub name: String,
     #[validate(email)]
     pub email: String,
     #[validate(length(min = 6))]
@@ -70,7 +68,7 @@ pub struct UpdateProfileRequest {
     #[validate(length(min = 3, max = 100))]
     pub username: String,
     #[validate(length(min = 1, max = 100))]
-    pub fullname: String,
+    pub name: String,
     #[serde(default)]
     pub profile: String,
     #[serde(default)]
@@ -336,7 +334,7 @@ pub struct UpdateSupporterRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateChurchRequest {
     #[validate(length(min = 1, max = 255))]
-    pub fullname: String,
+    pub name: String,
     #[serde(default)]
     pub address: String,
     #[serde(default)]

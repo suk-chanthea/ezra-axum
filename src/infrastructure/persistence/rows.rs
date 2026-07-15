@@ -12,7 +12,7 @@ use crate::domain::entity::{
 pub struct UserRow {
     pub id: i64,
     pub username: String,
-    pub fullname: String,
+    pub name: String,
     pub profile: String,
     pub email: String,
     pub email_verified: bool,
@@ -36,7 +36,7 @@ impl UserRow {
         User {
             id: self.id,
             username: self.username,
-            fullname: self.fullname,
+            name: self.name,
             profile: self.profile,
             email: self.email,
             email_verified: self.email_verified,
@@ -455,7 +455,7 @@ impl OtpRow {
 #[derive(FromRow)]
 pub struct ChurchRow {
     pub id: i64,
-    pub fullname: String,
+    pub name: String,
     pub address: String,
     pub phone: String,
     pub email: String,
@@ -474,7 +474,7 @@ impl ChurchRow {
     pub fn into_entity(self) -> Church {
         Church {
             id: self.id,
-            fullname: self.fullname,
+            name: self.name,
             address: self.address,
             phone: self.phone,
             email: self.email,

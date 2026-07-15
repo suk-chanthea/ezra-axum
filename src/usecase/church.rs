@@ -60,12 +60,12 @@ impl ChurchUseCase {
         req: CreateChurchRequest,
         owner_id: i64,
     ) -> AppResult<ChurchResponse> {
-        if self.church_repo.find_by_name(&req.fullname).await.is_ok() {
+        if self.church_repo.find_by_name(&req.name).await.is_ok() {
             return Err(AppError::BadRequest("church with this name already exists".to_string()));
         }
 
         let mut church = Church {
-            fullname: req.fullname,
+            name: req.name,
             address: req.address,
             phone: req.phone,
             email: req.email,
@@ -145,15 +145,15 @@ impl ChurchUseCase {
             return Err(AppError::BadRequest("only church owner can update church details".to_string()));
         }
 
-        if req.fullname != church.fullname {
-            if let Ok(existing) = self.church_repo.find_by_name(&req.fullname).await {
+        if req.name != church.name {
+            if let Ok(existing) = self.church_repo.find_by_name(&req.name).await {
                 if existing.id != id {
                     return Err(AppError::BadRequest("church with this name already exists".to_string()));
                 }
             }
         }
 
-        church.fullname = req.fullname;
+        church.name = req.name;
         church.address = req.address;
         church.phone = req.phone;
         church.email = req.email;

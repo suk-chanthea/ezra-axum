@@ -10,7 +10,7 @@ use crate::infrastructure::security::password::hash_password;
 
 const DEFAULT_EMAIL: &str = "ezra@gmail.com";
 const DEFAULT_PASSWORD: &str = "qwer1234";
-const DEFAULT_FULLNAME: &str = "Ezra";
+const DEFAULT_NAME: &str = "Ezra";
 
 fn seed_enabled() -> bool {
     match std::env::var("SEED_DEFAULT_USER") {
@@ -43,7 +43,7 @@ pub async fn seed_default_user(pool: &PgPool) -> anyhow::Result<()> {
 
     let password = default_password();
     let hash = hash_password(&password)?;
-    let mut user = User::new_local(email.clone(), DEFAULT_FULLNAME.to_string(), email.clone(), hash);
+    let mut user = User::new_local(email.clone(), DEFAULT_NAME.to_string(), email.clone(), hash);
     user.email_verified = true;
 
     user_repo.save(&mut user).await?;

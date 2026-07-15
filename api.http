@@ -81,7 +81,7 @@ Content-Type: application/json
 
 {
   "username": "johndoe",
-  "fullname": "John Doe",
+  "name": "John Doe",
   "email": "john@example.com",
   "password": "password123",
   "otp_code": "123456"
@@ -144,7 +144,7 @@ Content-Type: application/json
 
 {
   "username": "johndoe",
-  "fullname": "John Doe",
+  "name": "John Doe",
   "profile": "https://example.com/avatar.jpg",
   "phone": "+855123456789",
   "birthday": "1990-01-15",
@@ -916,7 +916,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "fullname": "Grace Community Church",
+  "name": "Grace Community Church",
   "address": "123 Main Street, Phnom Penh",
   "phone": "+855123456789",
   "email": "info@gracechurch.org",
@@ -961,7 +961,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "fullname": "Grace Community Church",
+  "name": "Grace Community Church",
   "address": "123 Main Street, Phnom Penh",
   "phone": "+855123456789",
   "email": "info@gracechurch.org",

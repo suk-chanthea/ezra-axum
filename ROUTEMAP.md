@@ -49,7 +49,7 @@ Create a new user account with email/password. **Requires verified OTP** for ema
 ```json
 {
   "username": "johndoe",
-  "fullname": "John Doe",
+  "name": "John Doe",
   "email": "john@example.com",
   "password": "password123",
   "otp_code": "123456"
@@ -59,7 +59,7 @@ Create a new user account with email/password. **Requires verified OTP** for ema
 **Validation Rules:**
 
 - `username`: required, min 3 chars, max 100 chars
-- `fullname`: required, min 1 char, max 100 chars
+- `name`: required, min 1 char, max 100 chars
 - `email`: required, valid email format, max 100 chars
 - `password`: required, min 6 chars
 - `otp_code`: required, exactly 6 digits, must be verified via `/otp/verify`
@@ -472,7 +472,7 @@ curl -X POST http://localhost:8080/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "newuser",
-    "fullname": "New User",
+    "name": "New User",
     "email": "newuser@example.com",
     "password": "securePassword123",
     "otp_code": "123456"
@@ -1755,7 +1755,7 @@ Retrieve all users who are members of a specific band.
     {
       "id": 5,
       "username": "johndoe",
-      "fullname": "John Doe",
+      "name": "John Doe",
       "email": "john@example.com",
       "profile": "https://example.com/profiles/johndoe.jpg",
       "role": "user",
@@ -2019,7 +2019,7 @@ Retrieve a specific donation with full details.
   "user": {
     "id": 5,
     "username": "johndoe",
-    "fullname": "John Doe",
+    "name": "John Doe",
     "email": "john@example.com"
   },
   "amount": 50.0,
@@ -2613,7 +2613,7 @@ Create a new church profile (user becomes owner).
 
 ```json
 {
-  "fullname": "Grace Baptist Church",
+  "name": "Grace Baptist Church",
   "address": "456 Church Ave, Phnom Penh",
   "phone": "+855987654331",
   "email": "contact@gracebaptist.org",
@@ -2628,7 +2628,7 @@ Create a new church profile (user becomes owner).
 
 **Validation Rules:**
 
-- `fullname`: required, min 1 char, max 255 chars, unique
+- `name`: required, min 1 char, max 255 chars, unique
 - `address`: optional, text
 - `phone`: optional, max 50 chars
 - `email`: optional, valid email, max 255 chars
@@ -2646,7 +2646,7 @@ Create a new church profile (user becomes owner).
   "message": "church created successfully",
   "data": {
     "id": 1,
-    "fullname": "Grace Baptist Church",
+    "name": "Grace Baptist Church",
     "address": "456 Church Ave, Phnom Penh",
     "phone": "+855987654331",
     "email": "contact@gracebaptist.org",
@@ -2699,7 +2699,7 @@ Retrieve a specific church's details including member counts.
 ```json
 {
   "id": 1,
-  "fullname": "Grace Baptist Church",
+  "name": "Grace Baptist Church",
   "address": "456 Church Ave, Phnom Penh",
   "phone": "+855987654331",
   "email": "contact@gracebaptist.org",
@@ -2713,7 +2713,7 @@ Retrieve a specific church's details including member counts.
   "owner": {
     "id": 5,
     "username": "johndoe",
-    "fullname": "John Doe",
+    "name": "John Doe",
     "email": "john@example.com"
   },
   "member_count": 25,
@@ -2769,7 +2769,7 @@ Retrieve approved members of a church.
     {
       "id": 10,
       "username": "janedoe",
-      "fullname": "Jane Doe",
+      "name": "Jane Doe",
       "email": "jane@example.com",
       "profile": "https://example.com/profiles/jane.jpg",
       "church_id": 1,
@@ -2871,7 +2871,7 @@ View pending membership requests for your church.
     {
       "id": 15,
       "username": "newuser",
-      "fullname": "New User",
+      "name": "New User",
       "email": "newuser@example.com",
       "church_id": 1,
       "church_status": "pending",
@@ -3034,14 +3034,14 @@ Users have the following church-related fields:
 {
   "id": 10,
   "username": "janedoe",
-  "fullname": "Jane Doe",
+  "name": "Jane Doe",
   "email": "jane@example.com",
   "profile": "https://example.com/profiles/jane.jpg",
   "birthday": "1990-05-15T00:00:00Z",
   "church_id": 1,
   "church": {
     "id": 1,
-    "fullname": "Grace Baptist Church",
+    "name": "Grace Baptist Church",
     "pastor_name": "Rev. John Smith"
   },
   "church_status": "approved",

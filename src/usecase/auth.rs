@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use chrono::NaiveDate;
+use rand::Rng;
 
 use crate::domain::entity::User;
 use crate::domain::repository::{OtpRepository, UserRepository};
@@ -54,15 +55,18 @@ impl AuthUseCase {
             ));
         }
 
-        if self.user_repo.find_by_username(&req.username).await.is_ok() {
-            return Err(AppError::BadRequest("username already exists".to_string()));
-        }
         if self.user_repo.find_by_email(&req.email).await.is_ok() {
             return Err(AppError::BadRequest("email already exists".to_string()));
         }
 
+        // Auto-generate a unique username instead of accepting one from the client.
+        let mut username = generate_username(&req.email);
+        while self.user_repo.find_by_username(&username).await.is_ok() {
+            username = generate_username(&req.email);
+        }
+
         let hash = hash_password(&req.password)?;
-        let mut user = User::new_local(req.username, req.fullname, req.email.clone(), hash);
+        let mut user = User::new_local(username, req.name, req.email.clone(), hash);
         user.email_verified = true;
 
         self.user_repo.save(&mut user).await?;
@@ -134,12 +138,12 @@ impl AuthUseCase {
         &self,
         google_id: &str,
         email: &str,
-        fullname: &str,
+        name: &str,
         profile_picture: &str,
     ) -> AppResult<AuthResponse> {
         let user = match self.user_repo.find_by_provider_id("google", google_id).await {
             Ok(mut existing) => {
-                existing.fullname = fullname.to_string();
+                existing.name = name.to_string();
                 existing.profile = profile_picture.to_string();
                 existing.email = email.to_string();
                 self.user_repo.update(&existing).await?;
@@ -155,7 +159,7 @@ impl AuthUseCase {
                 }
                 let mut new_user = User::new_oauth(
                     email.to_string(),
-                    fullname.to_string(),
+                    name.to_string(),
                     "google".to_string(),
                     google_id.to_string(),
                 );
@@ -230,7 +234,7 @@ impl AuthUseCase {
         }
 
         user.username = req.username;
-        user.fullname = req.fullname;
+        user.name = req.name;
         user.profile = req.profile;
         user.phone = req.phone;
         user.bio = req.bio;
@@ -271,4 +275,20 @@ impl AuthUseCase {
         }
         Ok(())
     }
+}
+
+/// Derives a unique-ish username from the local part of an email address,
+/// suffixed with a random number to avoid collisions.
+fn generate_username(email: &str) -> String {
+    let base: String = email
+        .split('@')
+        .next()
+        .unwrap_or("user")
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
+    let base = if base.is_empty() { "user".to_string() } else { base };
+    let suffix: u32 = rand::thread_rng().gen_range(0..100_000);
+    format!("{base}{suffix}")
 }

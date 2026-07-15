@@ -25,13 +25,13 @@ impl ChurchRepository for PgChurchRepository {
         let rec: (i64, DateTime<Utc>, DateTime<Utc>) = sqlx::query_as(
             r#"
             INSERT INTO churches
-                (fullname, address, phone, email, website, pastor_name, description, logo,
+                (name, address, phone, email, website, pastor_name, description, logo,
                  established_date, denomination, owner_id, created_at, updated_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, NOW(), NOW())
             RETURNING id, created_at, updated_at
             "#,
         )
-        .bind(&church.fullname)
+        .bind(&church.name)
         .bind(&church.address)
         .bind(&church.phone)
         .bind(&church.email)
@@ -70,7 +70,7 @@ impl ChurchRepository for PgChurchRepository {
     }
 
     async fn find_by_name(&self, name: &str) -> AppResult<Church> {
-        let row = sqlx::query_as::<_, ChurchRow>("SELECT * FROM churches WHERE fullname = $1")
+        let row = sqlx::query_as::<_, ChurchRow>("SELECT * FROM churches WHERE name = $1")
             .bind(name)
             .fetch_optional(&self.pool)
             .await?
@@ -81,14 +81,14 @@ impl ChurchRepository for PgChurchRepository {
     async fn find_all(&self, limit: i64, offset: i64) -> AppResult<Vec<Church>> {
         let rows = if limit > 0 {
             sqlx::query_as::<_, ChurchRow>(
-                "SELECT * FROM churches ORDER BY fullname ASC LIMIT $1 OFFSET $2",
+                "SELECT * FROM churches ORDER BY name ASC LIMIT $1 OFFSET $2",
             )
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
             .await?
         } else {
-            sqlx::query_as::<_, ChurchRow>("SELECT * FROM churches ORDER BY fullname ASC")
+            sqlx::query_as::<_, ChurchRow>("SELECT * FROM churches ORDER BY name ASC")
                 .fetch_all(&self.pool)
                 .await?
         };
@@ -98,7 +98,7 @@ impl ChurchRepository for PgChurchRepository {
     async fn find_by_denomination(&self, denomination: &str, limit: i64, offset: i64) -> AppResult<Vec<Church>> {
         let rows = if limit > 0 {
             sqlx::query_as::<_, ChurchRow>(
-                "SELECT * FROM churches WHERE denomination = $1 ORDER BY fullname ASC LIMIT $2 OFFSET $3",
+                "SELECT * FROM churches WHERE denomination = $1 ORDER BY name ASC LIMIT $2 OFFSET $3",
             )
             .bind(denomination)
             .bind(limit)
@@ -107,7 +107,7 @@ impl ChurchRepository for PgChurchRepository {
             .await?
         } else {
             sqlx::query_as::<_, ChurchRow>(
-                "SELECT * FROM churches WHERE denomination = $1 ORDER BY fullname ASC",
+                "SELECT * FROM churches WHERE denomination = $1 ORDER BY name ASC",
             )
             .bind(denomination)
             .fetch_all(&self.pool)
@@ -120,13 +120,13 @@ impl ChurchRepository for PgChurchRepository {
         sqlx::query(
             r#"
             UPDATE churches SET
-                fullname = $1, address = $2, phone = $3, email = $4, website = $5,
+                name = $1, address = $2, phone = $3, email = $4, website = $5,
                 pastor_name = $6, description = $7, logo = $8, established_date = $9,
                 denomination = $10, owner_id = $11, updated_at = NOW()
             WHERE id = $12
             "#,
         )
-        .bind(&church.fullname)
+        .bind(&church.name)
         .bind(&church.address)
         .bind(&church.phone)
         .bind(&church.email)
