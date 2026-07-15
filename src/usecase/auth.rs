@@ -21,6 +21,8 @@ pub struct AuthUseCase {
     jwt: JwtManager,
     #[allow(dead_code)]
     google_client_id: String,
+    register_otp_required: bool,
+    login_otp_required: bool,
 }
 
 impl AuthUseCase {
@@ -29,8 +31,17 @@ impl AuthUseCase {
         otp_repo: Arc<dyn OtpRepository>,
         jwt: JwtManager,
         google_client_id: String,
+        register_otp_required: bool,
+        login_otp_required: bool,
     ) -> Self {
-        AuthUseCase { user_repo, otp_repo, jwt, google_client_id }
+        AuthUseCase {
+            user_repo,
+            otp_repo,
+            jwt,
+            google_client_id,
+            register_otp_required,
+            login_otp_required,
+        }
     }
 
     fn generate_token(&self, user: &User) -> AppResult<String> {
@@ -38,21 +49,23 @@ impl AuthUseCase {
     }
 
     pub async fn register(&self, req: RegisterRequest) -> AppResult<AuthResponse> {
-        let otp = self
-            .otp_repo
-            .find_by_email_code_and_purpose(&req.email, &req.otp_code, "email_verification")
-            .await
-            .map_err(|_| AppError::BadRequest("invalid OTP code".to_string()))?;
+        if self.register_otp_required {
+            let otp = self
+                .otp_repo
+                .find_by_email_code_and_purpose(&req.email, &req.otp_code, "email_verification")
+                .await
+                .map_err(|_| AppError::BadRequest("invalid OTP code".to_string()))?;
 
-        if !otp.verified {
-            return Err(AppError::BadRequest(
-                "OTP not verified. Please verify OTP first via /otp/verify".to_string(),
-            ));
-        }
-        if otp.is_expired() {
-            return Err(AppError::BadRequest(
-                "OTP has expired. Please request a new one".to_string(),
-            ));
+            if !otp.verified {
+                return Err(AppError::BadRequest(
+                    "OTP not verified. Please verify OTP first via /otp/verify".to_string(),
+                ));
+            }
+            if otp.is_expired() {
+                return Err(AppError::BadRequest(
+                    "OTP has expired. Please request a new one".to_string(),
+                ));
+            }
         }
 
         if self.user_repo.find_by_email(&req.email).await.is_ok() {
@@ -93,7 +106,12 @@ impl AuthUseCase {
             return Err(AppError::Unauthorized("invalid credentials".to_string()));
         }
 
-        if !req.otp_code.is_empty() {
+        if self.login_otp_required || !req.otp_code.is_empty() {
+            if self.login_otp_required && req.otp_code.is_empty() {
+                return Err(AppError::Unauthorized(
+                    "OTP code is required to login".to_string(),
+                ));
+            }
             let otp = self
                 .otp_repo
                 .find_by_email_code_and_purpose(&user.email, &req.otp_code, "login")

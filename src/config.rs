@@ -11,6 +11,7 @@ pub struct Config {
     pub email: EmailConfig,
     pub firebase: FirebaseConfig,
     pub payway: PaywayConfig,
+    pub auth: AuthConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +84,17 @@ pub struct PaywayConfig {
     pub callback_url: String,
 }
 
+/// Toggles for whether OTP verification is required on auth flows.
+#[derive(Debug, Clone)]
+pub struct AuthConfig {
+    /// If true, /auth/register requires a verified "email_verification" OTP.
+    /// If false, registration proceeds without any OTP check.
+    pub register_otp_required: bool,
+    /// If true, /auth/login requires a verified "login" OTP (2FA) on every login.
+    /// If false, login only checks OTP when the client supplies one (optional 2FA).
+    pub login_otp_required: bool,
+}
+
 impl Config {
     /// Reads configuration from the environment with sensible defaults.
     pub fn load() -> anyhow::Result<Self> {
@@ -130,6 +142,10 @@ impl Config {
                 return_url: get_env("PAYWAY_RETURN_URL", ""),
                 continue_url: get_env("PAYWAY_CONTINUE_URL", ""),
                 callback_url: get_env("PAYWAY_CALLBACK_URL", ""),
+            },
+            auth: AuthConfig {
+                register_otp_required: get_env_as_bool("AUTH_REGISTER_OTP_REQUIRED", true),
+                login_otp_required: get_env_as_bool("AUTH_LOGIN_OTP_REQUIRED", false),
             },
         };
 

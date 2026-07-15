@@ -134,6 +134,8 @@ async fn main() -> anyhow::Result<()> {
         otp_repo.clone(),
         JwtManager::new(&cfg.jwt.secret),
         cfg.oauth.google_client_id.clone(),
+        cfg.auth.register_otp_required,
+        cfg.auth.login_otp_required,
     ));
     let otp_uc = Arc::new(OtpUseCase::new(
         otp_repo.clone(),

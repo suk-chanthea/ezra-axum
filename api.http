@@ -4,7 +4,7 @@
 ### 2. Update placeholder IDs (@musicId, @eventId, etc.) from responses.
 
 @baseUrl = http://localhost:8080
-@token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsInVzZXJuYW1lIjoiZXpyYUBnbWFpbC5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc4OTU3MjcwMX0.hEQv5mGE26F5JPcSD5PRaRSZQuXclqr6hxBD7pkzy7o
+@token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsInVzZXJuYW1lIjoiZXpyYUBnbWFpbC5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc5MTkwMzIyNX0.a3m58LfXrIZHUhBbHGS1cWVpDifABb8m0dKcleEGOak
 
 # Default dev user (auto-seeded on startup in development)
 @defaultEmail = ezra@gmail.com
@@ -80,10 +80,10 @@ POST {{baseUrl}}/register
 Content-Type: application/json
 
 {
-  "username": "johndoe",
   "name": "John Doe",
-  "email": "john@example.com",
-  "password": "password123",
+  "email": "johndoe@gmail.com",
+  "password": "qwer1234",
+  "profile": "default.png",
   "otp_code": "123456"
 }
 
@@ -170,12 +170,12 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "title": "Amazing Grace",
+  "title": "ព្រះអទិករ",
   "artist": "John Newton",
   "album": "Hymns",
   "genre": "Hymn",
   "duration": 240,
-  "bpm": 80,
+  "bpm": 120,
   "key": "G",
   "cover": "https://example.com/covers/amazing-grace.jpg",
   "lyrics": "Amazing grace, how sweet the sound...",
