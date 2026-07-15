@@ -5,3 +5,4 @@ pub mod payway;
 pub mod persistence;
 pub mod security;
 pub mod seed;
+pub mod s3;

@@ -32,9 +32,11 @@ use crate::infrastructure::persistence::favorite_repository::PgFavoriteRepositor
 use crate::infrastructure::persistence::music_repository::PgMusicRepository;
 use crate::infrastructure::persistence::notification_repository::PgNotificationRepository;
 use crate::infrastructure::persistence::otp_repository::PgOtpRepository;
+use crate::infrastructure::persistence::session_repository::PgSessionRepository;
 use crate::infrastructure::persistence::setting_repository::PgSettingRepository;
 use crate::infrastructure::persistence::supporter_repository::PgSupporterRepository;
 use crate::infrastructure::persistence::user_repository::PgUserRepository;
+use crate::infrastructure::s3::{AwsS3Service, DummyS3Service, S3Service};
 use crate::infrastructure::security::jwt::JwtManager;
 use crate::interface::http::router;
 use crate::state::AppState;
@@ -91,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
     let donation_repo = Arc::new(PgDonationRepository::new(pool.clone()));
     let supporter_repo = Arc::new(PgSupporterRepository::new(pool.clone()));
     let church_repo = Arc::new(PgChurchRepository::new(pool.clone()));
+    let session_repo = Arc::new(PgSessionRepository::new(pool.clone()));
 
     // External services
     let email_service: Arc<dyn EmailService> = if cfg.email.enabled {
@@ -127,11 +130,27 @@ async fn main() -> anyhow::Result<()> {
         Arc::new(DummyPaywayService)
     };
 
+    let s3_service: Arc<dyn S3Service> = if cfg.s3.enabled {
+        tracing::info!("Initializing AWS S3 service (bucket: {})...", cfg.s3.bucket);
+        Arc::new(AwsS3Service::new(
+            cfg.s3.bucket.clone(),
+            cfg.s3.region.clone(),
+            cfg.s3.access_key_id.clone(),
+            cfg.s3.secret_access_key.clone(),
+            cfg.s3.endpoint.clone(),
+        ))
+    } else {
+        tracing::info!("AWS S3 service disabled or not fully configured; using dummy implementation.");
+        Arc::new(DummyS3Service)
+    };
+
     // Use cases
     tracing::info!("Initializing use cases...");
     let auth_uc = Arc::new(AuthUseCase::new(
         user_repo.clone(),
         otp_repo.clone(),
+        session_repo.clone(),
+        s3_service.clone(),
         JwtManager::new(&cfg.jwt.secret),
         cfg.oauth.google_client_id.clone(),
         cfg.auth.register_otp_required,

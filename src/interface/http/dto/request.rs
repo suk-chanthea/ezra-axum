@@ -17,16 +17,32 @@ pub struct RegisterRequest {
     pub password: String,
     #[validate(length(min = 6, max = 6))]
     pub otp_code: String,
+    #[serde(default)]
+    pub profile: Option<String>,
+    #[serde(default)]
+    pub bio: Option<String>,
+    #[serde(default)]
+    pub birthday: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub device_id: Option<String>,
+    #[serde(default)]
+    pub device_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 1))]
-    pub username: String,
+    pub email: String,
     #[validate(length(min = 1))]
     pub password: String,
     #[serde(default)]
     pub otp_code: String,
+    #[serde(default)]
+    pub device_id: Option<String>,
+    #[serde(default)]
+    pub device_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

@@ -13,10 +13,18 @@ use super::handler::{
 };
 use crate::state::AppState;
 
+use tower_http::cors::{CorsLayer, Any};
+
 pub fn build(state: AppState) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     Router::new()
         .merge(public_routes())
         .nest("/api", protected_routes())
+        .layer(cors)
         .with_state(state)
 }
 
@@ -58,7 +66,10 @@ fn protected_routes() -> Router<AppState> {
         // User / auth
         .route("/me", get(auth::get_me).put(auth::update_me))
         .route("/logout", post(auth::logout))
+        .route("/logout/all", post(auth::logout_all))
         .route("/user", delete(auth::delete_user))
+        .route("/sessions", get(auth::get_sessions))
+        .route("/sessions/:id", delete(auth::revoke_session))
         // Music
         .route("/musics", get(music::get_all).post(music::create))
         .route("/musics/user", get(music::get_by_user))

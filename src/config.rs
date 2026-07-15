@@ -12,6 +12,17 @@ pub struct Config {
     pub firebase: FirebaseConfig,
     pub payway: PaywayConfig,
     pub auth: AuthConfig,
+    pub s3: S3Config,
+}
+
+#[derive(Debug, Clone)]
+pub struct S3Config {
+    pub enabled: bool,
+    pub bucket: String,
+    pub region: String,
+    pub access_key_id: String,
+    pub secret_access_key: String,
+    pub endpoint: String,
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +157,29 @@ impl Config {
             auth: AuthConfig {
                 register_otp_required: get_env_as_bool("AUTH_REGISTER_OTP_REQUIRED", true),
                 login_otp_required: get_env_as_bool("AUTH_LOGIN_OTP_REQUIRED", false),
+            },
+            s3: S3Config {
+                enabled: get_env_as_bool("AWS_S3_ENABLED", false)
+                    || (!get_env("AWS_S3_BUCKET", "").is_empty()
+                        && (!get_env("AWS_ACCESS_KEY_ID", "").is_empty()
+                            || !get_env("AWS_ACCESS_KEY", "").is_empty())),
+                bucket: get_env("AWS_S3_BUCKET", ""),
+                region: get_env("AWS_REGION", "us-east-1"),
+                access_key_id: {
+                    let mut key = get_env("AWS_ACCESS_KEY_ID", "");
+                    if key.is_empty() {
+                        key = get_env("AWS_ACCESS_KEY", "");
+                    }
+                    key
+                },
+                secret_access_key: {
+                    let mut secret = get_env("AWS_SECRET_ACCESS_KEY", "");
+                    if secret.is_empty() {
+                        secret = get_env("AWS_SECRET_KEY", "");
+                    }
+                    secret
+                },
+                endpoint: get_env("AWS_S3_ENDPOINT", ""),
             },
         };
 

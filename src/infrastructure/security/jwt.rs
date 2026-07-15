@@ -26,9 +26,21 @@ impl JwtManager {
         }
     }
 
-    /// Issues a token valid for ~3 months, matching the Go `AddDate(0, 3, 0)` expiry.
+    /// Issues a token valid for ~3 months (default), matching the Go `AddDate(0, 3, 0)` expiry.
     pub fn generate(&self, user_id: i64, username: &str, role: &str) -> AppResult<String> {
-        let exp = (Utc::now() + Duration::days(90)).timestamp();
+        self.generate_with_expiry(user_id, username, role, 6)
+    }
+
+    /// Issues a token with a configurable expiry in months (1, 3, 6, or 12).
+    pub fn generate_with_expiry(
+        &self,
+        user_id: i64,
+        username: &str,
+        role: &str,
+        expire_months: i64,
+    ) -> AppResult<String> {
+        let days = expire_months * 30;
+        let exp = (Utc::now() + Duration::days(days)).timestamp();
         let claims = Claims {
             sub: user_id,
             username: username.to_string(),

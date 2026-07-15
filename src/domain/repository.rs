@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::domain::entity::{
     Band, Booking, ChatMessage, Church, Conversation, ConversationMember, DeviceToken, Donation,
-    Event, Favorite, Music, Notification, Otp, Setting, Supporter, User,
+    Event, Favorite, Music, Notification, Otp, Setting, Supporter, User, Session,
 };
 use crate::error::AppResult;
 
@@ -234,4 +234,15 @@ pub trait DeviceTokenRepository: Send + Sync {
     async fn delete_tokens(&self, tokens: &[String]) -> AppResult<()>;
     async fn deactivate_token(&self, token: &str) -> AppResult<()>;
     async fn delete_user_tokens(&self, user_id: i64) -> AppResult<()>;
+}
+
+#[async_trait]
+pub trait SessionRepository: Send + Sync {
+    async fn save(&self, session: &mut Session) -> AppResult<()>;
+    async fn verify(&self, user_id: i64, token: &str) -> AppResult<bool>;
+    async fn find_by_user_id(&self, user_id: i64) -> AppResult<Vec<Session>>;
+    async fn delete_by_id(&self, id: i64) -> AppResult<()>;
+    async fn delete_by_token(&self, token: &str) -> AppResult<()>;
+    async fn delete_by_user_id(&self, user_id: i64) -> AppResult<()>;
+    async fn delete_by_user_id_and_device(&self, user_id: i64, device_id: &str) -> AppResult<()>;
 }

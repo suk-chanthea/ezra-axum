@@ -756,3 +756,15 @@ impl DeviceToken {
         valid_platforms.contains(&self.platform.as_str())
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct Session {
+    pub id: i64,
+    pub user_id: i64,
+    pub device_id: String,
+    pub device_name: String,
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}

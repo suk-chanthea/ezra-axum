@@ -35,6 +35,11 @@ bcrypt = "0.15"
 hmac = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+
+# AWS SDK
+aws-config = { version = "1.5", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.60"
 
 # Errors & logging
 thiserror = "1"

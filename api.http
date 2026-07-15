@@ -1,7 +1,7 @@
 ### Ezra API — HTTP Client collection
 ### Works with VS Code REST Client, IntelliJ HTTP Client, and Cursor.
 ### 1. Run "Login" (or Register flow) first to populate @token.
-### 2. Update placeholder IDs (@musicId, @eventId, etc.) from responses.
+### 2. Update placeholder IDs (@sessionId, @musicId, @eventId, etc.) from responses.
 
 @baseUrl = http://localhost:8080
 @token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsInVzZXJuYW1lIjoiZXpyYUBnbWFpbC5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc5MTkwMzIyNX0.a3m58LfXrIZHUhBbHGS1cWVpDifABb8m0dKcleEGOak
@@ -23,6 +23,7 @@
 @supporterId = 1
 @churchId = 1
 @userId = 2
+@sessionId = 1
 @denomination = Baptist
 
 ###############################################################################
@@ -84,7 +85,9 @@ Content-Type: application/json
   "email": "johndoe@gmail.com",
   "password": "qwer1234",
   "profile": "default.png",
-  "otp_code": "123456"
+  "otp_code": "123456",
+  "device_id": "phone-android-001",
+  "device_name": "Samsung Galaxy S24"
 }
 
 ### Login (default dev user)
@@ -93,8 +96,10 @@ POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
-  "username": "{{defaultEmail}}",
-  "password": "{{defaultPassword}}"
+  "email": "{{defaultEmail}}",
+  "password": "{{defaultPassword}}",
+  "device_id": "web-browser-001",
+  "device_name": "Chrome on MacBook"
 }
 
 ### Login with 2FA OTP
@@ -103,9 +108,11 @@ POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
-  "username": "johndoe",
+  "email": "johndoe",
   "password": "password123",
-  "otp_code": "123456"
+  "otp_code": "123456",
+  "device_id": "mobile-001",
+  "device_name": "iPhone 15 Pro"
 }
 
 ### Google Login
@@ -151,12 +158,28 @@ Content-Type: application/json
   "bio": "Worship leader"
 }
 
-### Logout
+### Logout (current session)
 POST {{baseUrl}}/api/logout
+Authorization: Bearer {{token}}
+
+### Logout all devices
+POST {{baseUrl}}/api/logout/all
 Authorization: Bearer {{token}}
 
 ### Delete user account
 DELETE {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Sessions (protected)
+###############################################################################
+
+### List all active sessions
+GET {{baseUrl}}/api/sessions
+Authorization: Bearer {{token}}
+
+### Revoke a specific session by ID
+DELETE {{baseUrl}}/api/sessions/{{sessionId}}
 Authorization: Bearer {{token}}
 
 ###############################################################################

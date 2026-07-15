@@ -1,7 +1,7 @@
 //! Auth handlers (register, login, OAuth, profile), mirroring Go `AuthHandler`.
 
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{Query, State, Path};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 
@@ -61,12 +61,47 @@ pub async fn reset_password(
     Ok(Json(resp))
 }
 
+#[derive(serde::Deserialize)]
+pub struct LogoutQuery {
+    #[serde(default)]
+    pub all: bool,
+}
+
 pub async fn logout(
     State(state): State<AppState>,
     AuthUser(user_id): AuthUser,
+    Query(query): Query<LogoutQuery>,
+    headers: HeaderMap,
 ) -> AppResult<impl IntoResponse> {
-    state.auth.logout(user_id).await?;
-    Ok(Json(SuccessResponse::message("logged out successfully")))
+    if query.all {
+        state.auth.logout_all(user_id).await?;
+        Ok(Json(SuccessResponse::message("logged out from all devices successfully")))
+    } else {
+        let token = extract_token_from_headers(&headers)?;
+        state.auth.logout_session(user_id, &token).await?;
+        Ok(Json(SuccessResponse::message("logged out successfully")))
+    }
+}
+
+pub async fn logout_all(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+) -> AppResult<impl IntoResponse> {
+    state.auth.logout_all(user_id).await?;
+    Ok(Json(SuccessResponse::message("logged out from all devices successfully")))
+}
+
+fn extract_token_from_headers(headers: &HeaderMap) -> AppResult<String> {
+    let header = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| AppError::Unauthorized("Authorization header required".to_string()))?;
+
+    let parts_vec: Vec<&str> = header.split(' ').collect();
+    if parts_vec.len() != 2 || parts_vec[0] != "Bearer" {
+        return Err(AppError::Unauthorized("Invalid authorization format".to_string()));
+    }
+    Ok(parts_vec[1].to_string())
 }
 
 pub async fn delete_user(
@@ -93,4 +128,21 @@ pub async fn update_me(
     let user = state.auth.update_me(user_id, req).await?;
     let data = serde_json::to_value(user).map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(Json(SuccessResponse::with_data("profile updated successfully", data)))
+}
+
+pub async fn get_sessions(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+) -> AppResult<impl IntoResponse> {
+    let sessions = state.auth.get_active_sessions(user_id).await?;
+    Ok(Json(sessions))
+}
+
+pub async fn revoke_session(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Path(session_id): Path<i64>,
+) -> AppResult<impl IntoResponse> {
+    state.auth.revoke_session(user_id, session_id).await?;
+    Ok(Json(SuccessResponse::message("session revoked successfully")))
 }

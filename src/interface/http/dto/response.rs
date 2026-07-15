@@ -7,7 +7,7 @@ use serde_json::Value;
 use super::local_time::LocalTime;
 use crate::domain::entity::{
     Band, Booking, ChatMessage, Church, Conversation, ConversationMember, Donation, Event, Music,
-    Notification, Setting, Supporter, User,
+    Notification, Setting, Supporter, User, Session,
 };
 
 fn is_zero_i32(v: &i32) -> bool {
@@ -29,6 +29,30 @@ pub struct AuthResponse {
     pub token: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct SessionResponse {
+    pub id: i64,
+    pub device_id: String,
+    pub device_name: String,
+    pub expires_at: LocalTime,
+    pub created_at: LocalTime,
+}
+
+impl SessionResponse {
+    pub fn new(session: &Session) -> Self {
+        Self {
+            id: session.id,
+            device_id: session.device_id.clone(),
+            device_name: session.device_name.clone(),
+            expires_at: LocalTime::new(session.expires_at),
+            created_at: LocalTime::new(session.created_at),
+        }
+    }
+
+    pub fn list(sessions: &[Session]) -> Vec<Self> {
+        sessions.iter().map(Self::new).collect()
+    }
+}
 #[derive(Debug, Serialize)]
 pub struct OtpResponse {
     pub message: String,

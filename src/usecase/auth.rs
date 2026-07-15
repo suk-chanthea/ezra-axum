@@ -2,22 +2,28 @@
 
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate, Utc};
 use rand::Rng;
 
-use crate::domain::entity::User;
-use crate::domain::repository::{OtpRepository, UserRepository};
+use base64::Engine;
+use crate::domain::entity::{User, Session};
+use crate::domain::repository::{OtpRepository, UserRepository, SessionRepository};
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::s3::S3Service;
 use crate::infrastructure::security::jwt::{Claims, JwtManager};
 use crate::infrastructure::security::password::{hash_password, verify_password};
 use crate::interface::http::dto::request::{
     LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateProfileRequest,
 };
-use crate::interface::http::dto::response::{AuthResponse, SuccessResponse, UserResponse};
+use crate::interface::http::dto::response::{
+    AuthResponse, SuccessResponse, UserResponse, SessionResponse,
+};
 
 pub struct AuthUseCase {
     user_repo: Arc<dyn UserRepository>,
     otp_repo: Arc<dyn OtpRepository>,
+    session_repo: Arc<dyn SessionRepository>,
+    s3_service: Arc<dyn S3Service>,
     jwt: JwtManager,
     #[allow(dead_code)]
     google_client_id: String,
@@ -29,6 +35,8 @@ impl AuthUseCase {
     pub fn new(
         user_repo: Arc<dyn UserRepository>,
         otp_repo: Arc<dyn OtpRepository>,
+        session_repo: Arc<dyn SessionRepository>,
+        s3_service: Arc<dyn S3Service>,
         jwt: JwtManager,
         google_client_id: String,
         register_otp_required: bool,
@@ -37,6 +45,8 @@ impl AuthUseCase {
         AuthUseCase {
             user_repo,
             otp_repo,
+            session_repo,
+            s3_service,
             jwt,
             google_client_id,
             register_otp_required,
@@ -46,6 +56,10 @@ impl AuthUseCase {
 
     fn generate_token(&self, user: &User) -> AppResult<String> {
         self.jwt.generate(user.id, &user.username, &user.role)
+    }
+
+    fn session_expires_at() -> chrono::DateTime<Utc> {
+        Utc::now() + Duration::days(6 * 30)
     }
 
     pub async fn register(&self, req: RegisterRequest) -> AppResult<AuthResponse> {
@@ -82,10 +96,37 @@ impl AuthUseCase {
         let mut user = User::new_local(username, req.name, req.email.clone(), hash);
         user.email_verified = true;
 
+        if let Some(profile) = req.profile {
+            user.profile = profile;
+        }
+        if let Some(bio) = req.bio {
+            user.bio = bio;
+        }
+        if let Some(phone) = req.phone {
+            user.phone = phone;
+        }
+        if let Some(bday_str) = req.birthday {
+            if !bday_str.is_empty() {
+                let birthday = NaiveDate::parse_from_str(&bday_str, "%Y-%m-%d")
+                    .map_err(|_| AppError::BadRequest("invalid birthday format, use YYYY-MM-DD".to_string()))?;
+                user.birthday = Some(birthday);
+            }
+        }
+
         self.user_repo.save(&mut user).await?;
 
         let token = self.generate_token(&user)?;
         self.user_repo.update_token(user.id, &token).await?;
+
+        let mut session = Session {
+            user_id: user.id,
+            device_id: req.device_id.unwrap_or_default(),
+            device_name: req.device_name.unwrap_or_default(),
+            token: token.clone(),
+            expires_at: Self::session_expires_at(),
+            ..Default::default()
+        };
+        self.session_repo.save(&mut session).await?;
 
         let _ = self
             .otp_repo
@@ -96,11 +137,12 @@ impl AuthUseCase {
     }
 
     pub async fn login(&self, req: LoginRequest) -> AppResult<AuthResponse> {
-        let user = self
-            .user_repo
-            .find_by_username(&req.username)
-            .await
-            .map_err(|_| AppError::Unauthorized("user not found".to_string()))?;
+        let user = if req.email.contains('@') {
+            self.user_repo.find_by_email(&req.email).await
+        } else {
+            self.user_repo.find_by_username(&req.email).await
+        }
+        .map_err(|_| AppError::Unauthorized("user not found".to_string()))?;
 
         if !verify_password(&req.password, &user.password) {
             return Err(AppError::Unauthorized("invalid credentials".to_string()));
@@ -133,11 +175,39 @@ impl AuthUseCase {
         let token = self.generate_token(&user)?;
         self.user_repo.update_token(user.id, &token).await?;
 
+        let dev_id = req.device_id.unwrap_or_default();
+        let dev_name = req.device_name.unwrap_or_default();
+        if !dev_id.is_empty() {
+            let _ = self.session_repo.delete_by_user_id_and_device(user.id, &dev_id).await;
+        }
+
+        let mut session = Session {
+            user_id: user.id,
+            device_id: dev_id,
+            device_name: dev_name,
+            token: token.clone(),
+            expires_at: Self::session_expires_at(),
+            ..Default::default()
+        };
+        self.session_repo.save(&mut session).await?;
+
         Ok(AuthResponse { message: String::new(), token })
     }
 
-    pub async fn logout(&self, user_id: i64) -> AppResult<()> {
-        self.user_repo.update_token(user_id, "").await
+    pub async fn logout_session(&self, user_id: i64, token: &str) -> AppResult<()> {
+        self.session_repo.delete_by_token(token).await?;
+        // Optional: update users.token if it matches the current logged-out token
+        if let Ok(user) = self.user_repo.find_by_id(user_id).await {
+            if user.token == token {
+                let _ = self.user_repo.update_token(user_id, "").await;
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn logout_all(&self, user_id: i64) -> AppResult<()> {
+        self.user_repo.update_token(user_id, "").await?;
+        self.session_repo.delete_by_user_id(user_id).await
     }
 
     pub async fn delete_user(&self, user_id: i64) -> AppResult<()> {
@@ -146,6 +216,7 @@ impl AuthUseCase {
             .find_by_id(user_id)
             .await
             .map_err(|_| AppError::BadRequest("user not found".to_string()))?;
+        self.session_repo.delete_by_user_id(user.id).await?;
         self.user_repo
             .delete(user.id)
             .await
@@ -190,6 +261,14 @@ impl AuthUseCase {
         let token = self.generate_token(&user)?;
         self.user_repo.update_token(user.id, &token).await?;
 
+        let mut session = Session {
+            user_id: user.id,
+            device_id: String::new(),
+            token: token.clone(),
+            ..Default::default()
+        };
+        self.session_repo.save(&mut session).await?;
+
         Ok(AuthResponse { message: "google login successful".to_string(), token })
     }
 
@@ -222,6 +301,7 @@ impl AuthUseCase {
             .map_err(|_| AppError::BadRequest("failed to update password".to_string()))?;
 
         let _ = self.user_repo.update_token(user.id, "").await;
+        let _ = self.session_repo.delete_by_user_id(user.id).await;
         let _ = self.otp_repo.delete_by_email_and_purpose(&req.email, "password_reset").await;
 
         Ok(SuccessResponse::message("password reset successfully"))
@@ -253,7 +333,17 @@ impl AuthUseCase {
 
         user.username = req.username;
         user.name = req.name;
-        user.profile = req.profile;
+
+        let mut profile_key = req.profile.clone();
+        if !req.profile.is_empty() {
+            let trimmed = req.profile.trim();
+            let is_b64 = trimmed.starts_with("data:image/")
+                || (trimmed.len() > 100 && base64::prelude::BASE64_STANDARD.decode(trimmed).is_ok());
+            if is_b64 {
+                profile_key = self.s3_service.upload_image(&req.profile).await?;
+            }
+        }
+        user.profile = profile_key;
         user.phone = req.phone;
         user.bio = req.bio;
 
@@ -278,20 +368,27 @@ impl AuthUseCase {
         self.jwt.validate(token)
     }
 
-    /// Ensures the presented token still matches what is stored for the user.
+    /// Ensures the presented token is still a valid active session.
     pub async fn verify_token_in_database(&self, user_id: i64, token: &str) -> AppResult<()> {
-        let user = self
-            .user_repo
-            .find_by_id(user_id)
-            .await
-            .map_err(|_| AppError::Unauthorized("user not found".to_string()))?;
-        if user.token.is_empty() {
-            return Err(AppError::Unauthorized("user has been logged out".to_string()));
-        }
-        if user.token != token {
-            return Err(AppError::Unauthorized("token has been invalidated".to_string()));
+        let exists = self.session_repo.verify(user_id, token).await?;
+        if !exists {
+            return Err(AppError::Unauthorized("session has been invalidated or logged out".to_string()));
         }
         Ok(())
+    }
+
+    pub async fn get_active_sessions(&self, user_id: i64) -> AppResult<Vec<SessionResponse>> {
+        let sessions = self.session_repo.find_by_user_id(user_id).await?;
+        Ok(SessionResponse::list(&sessions))
+    }
+
+    pub async fn revoke_session(&self, user_id: i64, session_id: i64) -> AppResult<()> {
+        let sessions = self.session_repo.find_by_user_id(user_id).await?;
+        if !sessions.iter().any(|s| s.id == session_id) {
+            return Err(AppError::Forbidden("Session does not belong to user".to_string()));
+        }
+
+        self.session_repo.delete_by_id(session_id).await
     }
 }
 
