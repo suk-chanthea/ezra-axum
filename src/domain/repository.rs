@@ -11,6 +11,8 @@ use crate::error::AppResult;
 #[async_trait]
 pub trait UserRepository: Send + Sync {
     async fn save(&self, user: &mut User) -> AppResult<()>;
+    async fn find_all(&self, limit: i64, offset: i64) -> AppResult<Vec<User>>;
+    async fn count(&self) -> AppResult<i64>;
     async fn find_by_username(&self, username: &str) -> AppResult<User>;
     async fn find_by_email(&self, email: &str) -> AppResult<User>;
     async fn find_by_id(&self, id: i64) -> AppResult<User>;
@@ -132,6 +134,16 @@ pub trait ChatRepository: Send + Sync {
         limit: i64,
     ) -> AppResult<(Vec<ChatMessage>, i64)>;
     async fn delete_message(&self, id: i64) -> AppResult<()>;
+    async fn create_chat_notification(
+        &self,
+        recipient_id: i64,
+        sender_id: i64,
+        conversation_id: i64,
+        sender_name: &str,
+        content: &str,
+    ) -> AppResult<()>;
+    async fn mark_chat_messages_as_read(&self, conversation_id: i64, user_id: i64) -> AppResult<()>;
+    async fn update_message(&self, id: i64, content: &str) -> AppResult<()>;
 }
 
 #[async_trait]

@@ -384,10 +384,23 @@ impl ChatMessage {
         }
         match self.message_type.as_str() {
             chat_message_type::TEXT => !self.content.is_empty(),
-            chat_message_type::VOICE | chat_message_type::IMAGE => !self.media_url.is_empty(),
+            chat_message_type::VOICE => !self.content.is_empty(),
+            chat_message_type::IMAGE => !self.media_url.is_empty(),
             chat_message_type::SONG => !self.music_ids.is_empty(),
             _ => false,
         }
+    }
+
+    pub fn room_id_for_convo(convo_id: i64) -> String {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(convo_id.to_string().as_bytes());
+        let hash = hasher.finalize();
+        let alphabet = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        hash.iter()
+            .take(16)
+            .map(|&b| alphabet[(b as usize) % alphabet.len()] as char)
+            .collect()
     }
 }
 

@@ -9,6 +9,7 @@ use crate::domain::entity::{
 use crate::domain::repository::{BandRepository, ChatRepository, MusicRepository, UserRepository};
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::fcm::FcmService;
+use crate::infrastructure::s3::S3Service;
 use crate::interface::http::dto::request::{
     AddConversationMemberRequest, CreateConversationRequest, SendChatMessageRequest,
     UpdateConversationMemberRequest,
@@ -23,6 +24,7 @@ pub struct ChatUseCase {
     music_repo: Arc<dyn MusicRepository>,
     user_repo: Arc<dyn UserRepository>,
     fcm_service: Arc<dyn FcmService>,
+    s3_service: Arc<dyn S3Service>,
 }
 
 impl ChatUseCase {
@@ -32,8 +34,9 @@ impl ChatUseCase {
         music_repo: Arc<dyn MusicRepository>,
         user_repo: Arc<dyn UserRepository>,
         fcm_service: Arc<dyn FcmService>,
+        s3_service: Arc<dyn S3Service>,
     ) -> Self {
-        ChatUseCase { chat_repo, band_repo, music_repo, user_repo, fcm_service }
+        ChatUseCase { chat_repo, band_repo, music_repo, user_repo, fcm_service, s3_service }
     }
 
     // ---- Permission helpers ----
@@ -399,31 +402,76 @@ impl ChatUseCase {
             )));
         }
 
-        if message_type == chat_message_type::SONG && !req.music_ids.is_empty() {
-            let musics = self
-                .music_repo
-                .find_by_ids(&req.music_ids)
-                .await
-                .map_err(|_| AppError::BadRequest("failed to validate music IDs".to_string()))?;
-            if musics.len() != req.music_ids.len() {
-                return Err(AppError::BadRequest(
-                    "one or more music IDs do not exist".to_string(),
-                ));
+        let mut music_ids = Vec::new();
+        let mut media_url = req.media_url.clone();
+        let mut content = req.content.clone();
+
+        if message_type == chat_message_type::SONG {
+            if !req.music_ids.is_empty() {
+                let musics = self
+                    .music_repo
+                    .find_by_ids(&req.music_ids)
+                    .await
+                    .map_err(|_| AppError::BadRequest("failed to validate music IDs".to_string()))?;
+                if musics.len() != req.music_ids.len() {
+                    return Err(AppError::BadRequest(
+                        "one or more music IDs do not exist".to_string(),
+                    ));
+                }
+
+                // Concatenate titles for media_url
+                let titles: Vec<String> = musics.iter().map(|m| m.title.clone()).collect();
+                let joined = titles.join(", ");
+                media_url = if joined.len() > 500 {
+                    let mut trunc = joined[..497].to_string();
+                    trunc.push_str("...");
+                    trunc
+                } else {
+                    joined
+                };
+
+                music_ids = req.music_ids;
             }
         }
+        if message_type == chat_message_type::VOICE {
+            let base64_str = if req.media_url.starts_with("data:") {
+                &req.media_url
+            } else {
+                &req.content
+            };
 
-        let music_ids = if message_type == chat_message_type::SONG {
-            req.music_ids
-        } else {
-            Vec::new()
-        };
+            if base64_str.starts_with("data:") {
+                if let Some(pos) = base64_str.find(";base64,") {
+                    let base64_data = &base64_str[pos + 8..];
+                    use base64::Engine;
+                    let decoded = base64::prelude::BASE64_STANDARD
+                        .decode(base64_data.trim())
+                        .map_err(|e| AppError::BadRequest(format!("Failed to decode base64 voice note: {}", e)))?;
+                    
+                    let timesecond = chrono::Utc::now().timestamp();
+                    let filename = format!("voice-{}.opus", timesecond);
+                    
+                    let room_id = ChatMessage::room_id_for_convo(conversation_id);
+                    
+                    let file_key = format!("voice/{}/{}", room_id, filename);
+                    
+                    let _ = self.s3_service.upload_file(decoded, &file_key, "audio/opus").await?;
+                    
+                    content = filename;
+                    media_url = String::new();
+                }
+            } else {
+                content = base64_str.clone();
+                media_url = String::new();
+            }
+        }
 
         let mut message = ChatMessage::new(
             conversation_id,
             sender_id,
             message_type,
-            req.content,
-            req.media_url,
+            content,
+            media_url,
             req.duration,
             music_ids,
         );
@@ -449,6 +497,7 @@ impl ChatUseCase {
         page_size: i64,
     ) -> AppResult<(Vec<ChatMessageResponse>, PaginationMetadata)> {
         self.require_member(conversation_id, user_id).await?;
+        let _ = self.chat_repo.mark_chat_messages_as_read(conversation_id, user_id).await;
         let offset = (page - 1) * page_size;
         let (messages, total) =
             self.chat_repo.find_messages(conversation_id, offset, page_size).await?;
@@ -489,6 +538,28 @@ impl ChatUseCase {
             ));
         }
         self.chat_repo.delete_message(message_id).await
+    }
+
+    pub async fn edit_message(
+        &self,
+        conversation_id: i64,
+        message_id: i64,
+        user_id: i64,
+        content: String,
+    ) -> AppResult<ChatMessageResponse> {
+        let member = self.require_member(conversation_id, user_id).await?;
+        let message = self.chat_repo.find_message(message_id).await?;
+        if message.conversation_id != conversation_id {
+            return Err(AppError::NotFound("message not found".to_string()));
+        }
+        if message.sender_id != user_id && !member.is_privileged() {
+            return Err(AppError::Forbidden(
+                "you can only edit your own messages".to_string(),
+            ));
+        }
+        self.chat_repo.update_message(message_id, &content).await?;
+        let updated = self.chat_repo.find_message(message_id).await?;
+        Ok(ChatMessageResponse::from_entity(&updated))
     }
 
     /// Best-effort push notification to the other participants.
@@ -532,6 +603,18 @@ impl ChatUseCase {
             if member.user_id == message.sender_id {
                 continue;
             }
+            // Save unread notification to the DB
+            let _ = self
+                .chat_repo
+                .create_chat_notification(
+                    member.user_id,
+                    message.sender_id,
+                    conversation_id,
+                    &sender_name,
+                    &body,
+                )
+                .await;
+
             if let Err(e) = self
                 .fcm_service
                 .send_to_user(member.user_id, &sender_name, &body, data.clone())

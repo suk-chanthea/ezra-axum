@@ -9,7 +9,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::security::google::GoogleVerifier;
 use crate::interface::http::dto::response::SuccessResponse;
 use crate::interface::http::dto::request::{
-    GoogleLoginRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateProfileRequest,
+    ChangeRoleRequest, GoogleLoginRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateProfileRequest, PaginationQuery, AdminCreateUserRequest,
 };
 use crate::interface::http::dto::ValidatedJson;
 use crate::interface::http::middleware::AuthUser;
@@ -145,4 +145,63 @@ pub async fn revoke_session(
 ) -> AppResult<impl IntoResponse> {
     state.auth.revoke_session(user_id, session_id).await?;
     Ok(Json(SuccessResponse::message("session revoked successfully")))
+}
+
+pub async fn get_all_users(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Query(pagination): Query<PaginationQuery>,
+) -> AppResult<impl IntoResponse> {
+    let caller = state.auth.get_me(user_id).await?;
+    if caller.role != "admin" && caller.role != "owner" && caller.role != "root" {
+        return Err(AppError::Forbidden("Only admin, owner, or root users can list all registered users".to_string()));
+    }
+
+    let users = state.auth.get_users(pagination.page, pagination.page_size).await?;
+    Ok(Json(users))
+}
+
+pub async fn delete_other_user(
+    State(state): State<AppState>,
+    AuthUser(caller_id): AuthUser,
+    Path(target_id): Path<i64>,
+) -> AppResult<impl IntoResponse> {
+    let caller = state.auth.get_me(caller_id).await?;
+    if caller.role != "admin" && caller.role != "owner" && caller.role != "root" {
+        return Err(AppError::Forbidden("Only admin, owner, or root users can delete other accounts".to_string()));
+    }
+
+    state.auth.delete_user(target_id).await?;
+    Ok(Json(SuccessResponse::message("user deleted successfully")))
+}
+
+pub async fn change_role(
+    State(state): State<AppState>,
+    AuthUser(caller_id): AuthUser,
+    Path(target_id): Path<i64>,
+    ValidatedJson(req): ValidatedJson<ChangeRoleRequest>,
+) -> AppResult<impl IntoResponse> {
+    let caller = state.auth.get_me(caller_id).await?;
+    if caller.role != "admin" && caller.role != "owner" && caller.role != "root" {
+        return Err(AppError::Forbidden("Only admin, owner, or root users can change user roles".to_string()));
+    }
+
+    let user = state.auth.change_user_role(target_id, req.role).await?;
+    let data = serde_json::to_value(user).map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(Json(SuccessResponse::with_data("user role updated successfully", data)))
+}
+
+pub async fn admin_create_user(
+    State(state): State<AppState>,
+    AuthUser(caller_id): AuthUser,
+    ValidatedJson(req): ValidatedJson<AdminCreateUserRequest>,
+) -> AppResult<impl IntoResponse> {
+    let caller = state.auth.get_me(caller_id).await?;
+    if caller.role != "admin" && caller.role != "owner" && caller.role != "root" {
+        return Err(AppError::Forbidden("Only admin, owner, or root users can create users directly".to_string()));
+    }
+
+    let user = state.auth.admin_create_user(req).await?;
+    let data = serde_json::to_value(user).map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok((StatusCode::CREATED, Json(SuccessResponse::with_data("user created successfully by admin", data))))
 }

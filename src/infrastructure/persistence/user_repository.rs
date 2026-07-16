@@ -57,6 +57,22 @@ impl UserRepository for PgUserRepository {
         Ok(())
     }
 
+    async fn find_all(&self, limit: i64, offset: i64) -> AppResult<Vec<User>> {
+        let rows = sqlx::query_as::<_, UserRow>("SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2")
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(|r| r.into_entity()).collect())
+    }
+
+    async fn count(&self) -> AppResult<i64> {
+        let rec = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(rec)
+    }
+
     async fn find_by_username(&self, username: &str) -> AppResult<User> {
         let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE username = $1")
             .bind(username)

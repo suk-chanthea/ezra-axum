@@ -216,7 +216,18 @@ impl UserResponse {
             id: u.id,
             username: u.username.clone(),
             name: u.name.clone(),
-            profile: u.profile.clone(),
+            profile: {
+                let bucket = std::env::var("AWS_S3_BUCKET").unwrap_or_else(|_| "s3-ezra".to_string());
+                let region = std::env::var("AWS_REGION").unwrap_or_else(|_| "ap-southeast-1".to_string());
+                
+                if u.profile.is_empty() || u.profile == "default.png" || u.profile == "default" {
+                    format!("https://{}.s3.{}.amazonaws.com/profile/default.png", bucket, region)
+                } else if u.profile.starts_with("http://") || u.profile.starts_with("https://") {
+                    u.profile.clone()
+                } else {
+                    format!("https://{}.s3.{}.amazonaws.com/{}", bucket, region, u.profile)
+                }
+            },
             email: u.email.clone(),
             email_verified: u.email_verified,
             phone: u.phone.clone(),
@@ -415,13 +426,43 @@ impl ChatMessageResponse {
         } else {
             Some(MusicResponse::list(&m.musics))
         };
+
+        let content = if m.message_type == "voice" {
+            if m.content.is_empty() {
+                String::new()
+            } else if m.content.starts_with("http://") || m.content.starts_with("https://") {
+                m.content.clone()
+            } else {
+                let room_id = ChatMessage::room_id_for_convo(m.conversation_id);
+                let bucket = std::env::var("AWS_S3_BUCKET").unwrap_or_else(|_| "s3-ezra".to_string());
+                let region = std::env::var("AWS_REGION").unwrap_or_else(|_| "ap-southeast-1".to_string());
+                format!("https://{}.s3.{}.amazonaws.com/voice/{}/{}", bucket, region, room_id, m.content)
+            }
+        } else {
+            m.content.clone()
+        };
+
         ChatMessageResponse {
             id: m.id,
             conversation_id: m.conversation_id,
             sender_id: m.sender_id,
             message_type: m.message_type.clone(),
-            content: m.content.clone(),
-            media_url: m.media_url.clone(),
+            content,
+            media_url: {
+                if m.media_url.is_empty() {
+                    String::new()
+                } else if m.message_type == "image" {
+                    if m.media_url.starts_with("http://") || m.media_url.starts_with("https://") {
+                        m.media_url.clone()
+                    } else {
+                        let bucket = std::env::var("AWS_S3_BUCKET").unwrap_or_else(|_| "s3-ezra".to_string());
+                        let region = std::env::var("AWS_REGION").unwrap_or_else(|_| "ap-southeast-1".to_string());
+                        format!("https://{}.s3.{}.amazonaws.com/{}", bucket, region, m.media_url)
+                    }
+                } else {
+                    m.media_url.clone()
+                }
+            },
             duration: m.duration,
             musics,
             sender: m.sender.as_ref().map(UserResponse::from_entity),

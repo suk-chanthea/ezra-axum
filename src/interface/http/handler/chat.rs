@@ -134,3 +134,13 @@ pub async fn delete_message(
     state.chat.delete_message(id, message_id, user_id).await?;
     Ok(Json(SuccessResponse::message("message deleted successfully")))
 }
+
+pub async fn edit_message(
+    State(state): State<AppState>,
+    AuthUser(user_id): AuthUser,
+    Path((id, message_id)): Path<(i64, i64)>,
+    ValidatedJson(req): ValidatedJson<SendChatMessageRequest>,
+) -> AppResult<impl IntoResponse> {
+    let message = state.chat.edit_message(id, message_id, user_id, req.content).await?;
+    Ok(Json(message))
+}

@@ -13,10 +13,10 @@ use crate::infrastructure::s3::S3Service;
 use crate::infrastructure::security::jwt::{Claims, JwtManager};
 use crate::infrastructure::security::password::{hash_password, verify_password};
 use crate::interface::http::dto::request::{
-    LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateProfileRequest,
+    ChangeRoleRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateProfileRequest, AdminCreateUserRequest,
 };
 use crate::interface::http::dto::response::{
-    AuthResponse, SuccessResponse, UserResponse, SessionResponse,
+    AuthResponse, SuccessResponse, UserResponse, SessionResponse, PaginatedResponse,
 };
 
 pub struct AuthUseCase {
@@ -316,6 +316,14 @@ impl AuthUseCase {
         Ok(UserResponse::from_entity(&user))
     }
 
+    pub async fn get_users(&self, page: i64, page_size: i64) -> AppResult<PaginatedResponse<UserResponse>> {
+        let (page, page_size) = clamp_page(page, page_size);
+        let offset = (page - 1) * page_size;
+        let users = self.user_repo.find_all(page_size, offset).await?;
+        let total = self.user_repo.count().await?;
+        Ok(PaginatedResponse::new(UserResponse::list(&users), page, page_size, total))
+    }
+
     pub async fn update_me(&self, user_id: i64, req: UpdateProfileRequest) -> AppResult<UserResponse> {
         let mut user = self
             .user_repo
@@ -363,6 +371,23 @@ impl AuthUseCase {
         Ok(UserResponse::from_entity(&user))
     }
 
+    pub async fn change_user_role(&self, user_id: i64, new_role: String) -> AppResult<UserResponse> {
+        let mut user = self
+            .user_repo
+            .find_by_id(user_id)
+            .await
+            .map_err(|_| AppError::BadRequest("user not found".to_string()))?;
+
+        user.role = new_role;
+
+        self.user_repo
+            .update(&user)
+            .await
+            .map_err(|_| AppError::BadRequest("failed to update user role".to_string()))?;
+
+        Ok(UserResponse::from_entity(&user))
+    }
+
     /// Validates a JWT and returns its claims (used by the auth middleware).
     pub fn validate_token(&self, token: &str) -> AppResult<Claims> {
         self.jwt.validate(token)
@@ -390,6 +415,32 @@ impl AuthUseCase {
 
         self.session_repo.delete_by_id(session_id).await
     }
+
+    pub async fn admin_create_user(&self, req: AdminCreateUserRequest) -> AppResult<UserResponse> {
+        if self.user_repo.find_by_email(&req.email).await.is_ok() {
+            return Err(AppError::BadRequest("email already exists".to_string()));
+        }
+
+        let mut username = req.username.unwrap_or_else(|| generate_username(&req.email));
+        if username.is_empty() {
+            username = generate_username(&req.email);
+        }
+        while self.user_repo.find_by_username(&username).await.is_ok() {
+            username = generate_username(&req.email);
+        }
+
+        let hash = hash_password(&req.password)?;
+        let mut user = User::new_local(username, req.name, req.email, hash);
+        user.email_verified = true;
+        user.role = req.role;
+        if let Some(phone) = req.phone {
+            user.phone = phone;
+        }
+
+        self.user_repo.save(&mut user).await?;
+
+        Ok(UserResponse::from_entity(&user))
+    }
 }
 
 /// Derives a unique-ish username from the local part of an email address,
@@ -406,4 +457,16 @@ fn generate_username(email: &str) -> String {
     let base = if base.is_empty() { "user".to_string() } else { base };
     let suffix: u32 = rand::thread_rng().gen_range(0..100_000);
     format!("{base}{suffix}")
+}
+
+fn clamp_page(page: i64, page_size: i64) -> (i64, i64) {
+    let p = if page <= 0 { 1 } else { page };
+    let ps = if page_size <= 0 {
+        10
+    } else if page_size > 100 {
+        100
+    } else {
+        page_size
+    };
+    (p, ps)
 }

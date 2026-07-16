@@ -177,6 +177,7 @@ async fn main() -> anyhow::Result<()> {
         music_repo.clone(),
         user_repo.clone(),
         fcm_service.clone(),
+        s3_service.clone(),
     ));
     let setting_uc = Arc::new(SettingUseCase::new(setting_repo.clone()));
     let notification_uc = Arc::new(NotificationUseCase::new(

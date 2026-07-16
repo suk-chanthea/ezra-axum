@@ -45,6 +45,7 @@ pub async fn seed_default_user(pool: &PgPool) -> anyhow::Result<()> {
     let hash = hash_password(&password)?;
     let mut user = User::new_local(email.clone(), DEFAULT_NAME.to_string(), email.clone(), hash);
     user.email_verified = true;
+    user.role = "admin".to_string();
 
     user_repo.save(&mut user).await?;
 

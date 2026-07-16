@@ -183,6 +183,45 @@ DELETE {{baseUrl}}/api/sessions/{{sessionId}}
 Authorization: Bearer {{token}}
 
 ###############################################################################
+# Users Directory Administration (protected, admin only)
+###############################################################################
+
+### List all users (admin only)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+
+### List all users paginated (admin only)
+GET {{baseUrl}}/api/users?page=1&page_size=10
+Authorization: Bearer {{token}}
+
+### Change role of another user (admin only)
+PUT {{baseUrl}}/api/users/{{userId}}/role
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role": "admin"
+}
+
+### Delete another user's account (admin only)
+DELETE {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Admin create user directly (admin/owner/root only)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Pastor Benjamin",
+  "email": "benjamin@gmail.com",
+  "password": "qwer1234",
+  "role": "pastor",
+  "phone": "+123456789",
+  "username": "pastorben"
+}
+
+###############################################################################
 # Music (protected)
 ###############################################################################
 

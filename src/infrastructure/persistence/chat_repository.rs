@@ -346,4 +346,52 @@ impl ChatRepository for PgChatRepository {
             .await?;
         Ok(())
     }
+
+    async fn create_chat_notification(
+        &self,
+        recipient_id: i64,
+        sender_id: i64,
+        conversation_id: i64,
+        sender_name: &str,
+        content: &str,
+    ) -> AppResult<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO notifications (user_id, sender_id, recipient_type, title, message, type, related_type, related_id, is_read, created_at, updated_at)
+            VALUES ($1, $2, 'user', $3, $4, 'chat', 'conversation', $5, FALSE, NOW(), NOW())
+            "#
+        )
+        .bind(recipient_id)
+        .bind(sender_id)
+        .bind(format!("New message from {}", sender_name))
+        .bind(content)
+        .bind(conversation_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn mark_chat_messages_as_read(&self, conversation_id: i64, user_id: i64) -> AppResult<()> {
+        sqlx::query(
+            r#"
+            UPDATE notifications
+            SET is_read = TRUE, read_at = NOW(), updated_at = NOW()
+            WHERE user_id = $1 AND type = 'chat' AND related_id = $2 AND is_read = FALSE
+            "#
+        )
+        .bind(user_id)
+        .bind(conversation_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn update_message(&self, id: i64, content: &str) -> AppResult<()> {
+        sqlx::query("UPDATE chat_messages SET content = $1, updated_at = NOW() WHERE id = $2")
+            .bind(content)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }

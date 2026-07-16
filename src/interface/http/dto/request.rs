@@ -96,6 +96,12 @@ pub struct UpdateProfileRequest {
     pub bio: String,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+pub struct ChangeRoleRequest {
+    #[validate(length(min = 1, max = 50))]
+    pub role: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateMusicRequest {
     pub title: String,
@@ -485,4 +491,20 @@ fn default_limit() -> i64 {
 pub struct EmailQuery {
     #[serde(default)]
     pub email: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct AdminCreateUserRequest {
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+    #[validate(email)]
+    pub email: String,
+    #[validate(length(min = 6))]
+    pub password: String,
+    #[validate(length(min = 1, max = 20))]
+    pub role: String,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
 }

@@ -12,6 +12,7 @@ use crate::error::{AppError, AppResult};
 #[async_trait]
 pub trait S3Service: Send + Sync {
     async fn upload_image(&self, base64_image: &str) -> AppResult<String>;
+    async fn upload_file(&self, data: Vec<u8>, file_key: &str, content_type: &str) -> AppResult<String>;
 }
 
 pub struct DummyS3Service;
@@ -23,6 +24,11 @@ impl S3Service for DummyS3Service {
         let filename = format!("profiles/dummy-{}.{}", Uuid::new_v4(), extension);
         tracing::info!("[DUMMY S3] Uploading image: returning simulated key {}", filename);
         Ok(filename)
+    }
+
+    async fn upload_file(&self, _data: Vec<u8>, file_key: &str, _content_type: &str) -> AppResult<String> {
+        tracing::info!("[DUMMY S3] Uploading file: returning simulated key {}", file_key);
+        Ok(file_key.to_string())
     }
 }
 
@@ -48,10 +54,11 @@ impl AwsS3Service {
         );
 
         let mut config_builder = aws_sdk_s3::config::Builder::new()
+            .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
             .region(aws_sdk_s3::config::Region::new(region))
             .credentials_provider(credentials);
 
-        if !endpoint.is_empty() {
+        if !endpoint.is_empty() && (endpoint.starts_with("http://") || endpoint.starts_with("https://")) {
             config_builder = config_builder.endpoint_url(endpoint);
         }
 
@@ -79,6 +86,20 @@ impl S3Service for AwsS3Service {
             .map_err(|e| AppError::Internal(format!("S3 upload error: {:?}", e)))?;
 
         Ok(file_key)
+    }
+
+    async fn upload_file(&self, data: Vec<u8>, file_key: &str, content_type: &str) -> AppResult<String> {
+        self.client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(file_key)
+            .body(ByteStream::from(data))
+            .content_type(content_type)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("S3 upload error: {:?}", e)))?;
+
+        Ok(file_key.to_string())
     }
 }
 

@@ -70,6 +70,9 @@ fn protected_routes() -> Router<AppState> {
         .route("/user", delete(auth::delete_user))
         .route("/sessions", get(auth::get_sessions))
         .route("/sessions/:id", delete(auth::revoke_session))
+        .route("/users", get(auth::get_all_users).post(auth::admin_create_user))
+        .route("/users/:id", delete(auth::delete_other_user))
+        .route("/users/:id/role", put(auth::change_role))
         // Music
         .route("/musics", get(music::get_all).post(music::create))
         .route("/musics/user", get(music::get_by_user))
@@ -110,7 +113,7 @@ fn protected_routes() -> Router<AppState> {
         .route("/chat/conversations/:id/messages", get(chat::get_messages).post(chat::send_message))
         .route(
             "/chat/conversations/:id/messages/:message_id",
-            get(chat::get_message).delete(chat::delete_message),
+            get(chat::get_message).put(chat::edit_message).delete(chat::delete_message),
         )
         // Setting
         .route("/settings", get(setting::get_settings).put(setting::update_settings))
